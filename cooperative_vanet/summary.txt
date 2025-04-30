@@ -1,0 +1,67 @@
+# Cooperative Vehicular Networks Simulation Summary
+
+## Overview
+This project implements a comprehensive simulation environment for cooperative vehicular networks, combining SUMO for traffic simulation, NS-3 for network simulation, and PyTorch Lightning for machine learning-based traffic prediction. The simulation reproduces the experimental setup described in the paper "Cooperative Vehicular Networks: An Optimal and Machine-Learning Approach".
+
+## Components
+
+### 1. SUMO Traffic Simulation
+- Implements a 1500m × 750m urban grid with two-lane roads
+- Uses the Krauss car-following model with max speed of 13 m/s
+- Generates realistic traffic patterns with morning and evening rush hours
+- Built-in data collection for vehicle positions, speeds, and densities
+
+### 2. NS-3 Network Simulation
+- IEEE 802.11p WAVE communication between vehicles and RSUs
+- Implemented signal propagation models and SNR calculation
+- RSU placement using K-means clustering
+- Variable transmit power between 5-35 dBm
+
+### 3. PyTorch Lightning ML Model
+- Stacked LSTM architecture (4 layers × 128 neurons) with dropout 0.2
+- Predicts future vehicle density based on historical data
+- Uses the Vehicle Information Table (VIT) for feature extraction
+- Includes adaptive training with early stopping
+
+### 4. Relay Selection Algorithm
+- Optimal stopping theory implementation ("look-then-leap" rule)
+- Adaptive relay selection with hysteresis to prevent oscillation
+- SNR-based relay selection with threshold-based decision making
+- Supports both V2V and V2I communication modes
+
+## Directory Structure
+```
+cooperative_vanet/
+├── configs/           # Configuration files for simulations
+├── data/              # Data directory
+├── src/               # Source code
+│   ├── ml/            # Machine learning components
+│   ├── ns3_integration/  # NS-3 integration code
+│   ├── sumo_integration/ # SUMO integration code
+│   ├── relay_selection/  # Relay selection algorithms
+│   └── utils/         # Utility functions
+├── scripts/           # Utility scripts
+└── tests/             # Test files
+```
+
+## Key Performance Metrics
+- Signal-to-Noise Ratio (SNR)
+- Packet Delivery Ratio (PDR)
+- End-to-end delay
+- Throughput
+- RSU power consumption
+
+## Running the Simulation
+1. Set up environment variables (SUMO_HOME, NS3_DIR)
+2. Create traffic network with `scripts/create_sumo_network.py`
+3. Generate traffic with `scripts/gen_sumo_routes.py`
+4. Train the ML model with `src/main.py train`
+5. Run the integrated simulation with `src/main.py simulate`
+6. Analyze results with `scripts/analyze_results.py`
+
+## Possible Extensions
+- Multi-objective optimization for relay selection
+- Integration with real-world traffic datasets
+- Reinforcement learning for adaptive power control
+- Security considerations for V2X communications
+- Hardware-in-the-loop testing with software-defined radios 

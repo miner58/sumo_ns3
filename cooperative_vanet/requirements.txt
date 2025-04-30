@@ -1,0 +1,23 @@
+# Core dependencies
+numpy>=1.19.0
+pandas>=1.1.0
+matplotlib>=3.3.0
+seaborn>=0.11.0
+
+# Machine Learning
+torch>=1.10.0
+pytorch-lightning>=1.5.0
+scikit-learn>=0.24.0
+
+# SUMO integration
+traci>=1.10.0  # SUMO Traffic Control Interface
+
+# Networking and simulation utils
+networkx>=2.5.0
+scipy>=1.7.0
+cppyy>=3.1.2  # Required for NS-3 Python bindings
+
+# Development tools
+pytest>=6.2.5
+black>=21.5b2
+pylint>=2.8.3 

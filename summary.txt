@@ -1,0 +1,75 @@
+### Paper at-a-glance  
+**Title:** *Cooperative Vehicular Networks: An Optimal and Machine-Learning Approach* (Computers & Electrical Engineering, 2022)  
+**Core Idea:** Combine NFV-enabled Road-Side Units (RSUs) with a Mobile-Edge-Computing (MEC) server that runs a stacked-LSTM traffic-flow predictor.  
+- **Why?**  
+  - DSRC/IEEE 802.11p links are short-range; covering an entire road with fixed RSUs is expensive.  
+  - Traffic density fluctuates; RSUs should adapt transmit power and relay selection in real time.  
+- **How?**  
+  1. **Traffic prediction** – An LSTM (4 layers × 128 neurons, dropout 0.2, Adam, 600 epochs) learns vehicle-density time-series extracted from a *Vehicle Information Table* (VIT) maintained at MEC.  
+  2. **Adaptive coverage** – An NFV layer on each RSU increases transmit gain when predicted density outside the current cell exceeds a threshold.  
+  3. **Cooperative relaying** – When the SNR of a direct V2V link falls below γ, MEC selects an RSU or a vehicle relay using **optimal-stopping theory** (look--then-leap rule, first candidate after 37 % sampling that yields the highest expected reward).  
+  4. **Validation**  
+     - **Field test:** Three USRP-N210 radios at 5.9 GHz showed capacity gains of up to 80 % over direct links.  
+     - **Simulation:** ns-3 + SUMO confirmed >10 % PDR gain under dense traffic and >25 % higher throughput than random relay choice.  
+
+---
+
+## Reproducing the ns-3 + SUMO simulation
+
+| Parameter | Value / Setting | Rationale |
+|-----------|-----------------|-----------|
+| **Simulators** | ns-3 v3.37 (net-dev branch with IEEE 802.11p stack) + SUMO 1.19 | Same versions as 2022 study ensure packet-format compatibility. |
+| **Coupling tool** | *ns3-SUMO‐Integration* (TraCI) | Online mobility feedback; RSU positions are fixed in ns-3, vehicles move per SUMO. |
+| **Scenario map** | 1500 m × 750 m rectangular urban grid, two-lane roads | Matches paper’s dimensions for RSU-coverage experiments. |
+| **Traffic generation** | 100 vehicles, car-following (Krauss), max speed = 13 m/s; flows injected for 12 h simulated time | Provides sparse → dense transitions to stress predictor. |
+| **Wireless PHY/MAC** | IEEE 802.11p, 10 MHz channels, Tx power 5–35 dBm (swept) | Needed to study PDR vs. adaptive gain. |
+| **Routing** | AODV with HELLO=1 s | Same ad-hoc protocol used in paper. |
+| **RSU deployment** | K-means elbow ⇒ K = 3; fixed at (200,150), (700,250), (1200,500) | Reproduce clustering step in Section 3. |
+| **Edge/MEC logic** | Python module linked via ns-3 PyBind; loads pre-trained LSTM (TensorFlow 2) every 5 s to update Tx-power table & relay map | Mirrors real-time inference loop. |
+| **Relay selection** | Optimal-stopping algorithm (Algorithm 2) with slot T = 100 ms, sensing cost τ = 2 ms | Re-implements paper’s pseudo-code. |
+| **Metrics logged** | SNR, PDR, end-to-end delay, throughput, RSU power consumption | Enables Figure 16–18 style plots. |
+
+### Step-by-step recipe
+
+1. **Generate mobility traces**  
+   ```bash
+   python gen_sumo_routes.py --map urban.net.xml --flows 100 \
+          --seed 42 --duration 43200 -o flows.rou.xml
+   ```
+2. **Build ns-3 with WAVE and TraCI bindings**  
+   ```bash
+   ./waf configure --enable-examples --enable-python-bindings
+   ./waf build
+   ```
+3. **Train the LSTM predictor (once)**  
+   ```python
+   # vehicles_per_minute.csv ⇒ supervised sequence dataset
+   model = tf.keras.Sequential([...])
+   model.fit(X_train, y_train, epochs=600, batch_size=256)
+   model.save("traffic_lstm.h5")
+   ```
+4. **Run integrated simulation**  
+   ```bash
+   ./waf --run "cooperative_vanet \
+       --sumoTrace=flows.rou.xml \
+       --lstmModel=traffic_lstm.h5 \
+       --txGainMin=5 --txGainMax=35"
+   ```
+5. **Post-process logs** to reproduce the key figures:  
+   - PDR vs. Tx Power  
+   - Throughput vs. number of relays  
+   - PDR vs. vehicle density (with/without cooperation)
+
+**Hardware needs:** a modern CPU (8 cores) + 16 GB RAM yields ~6 × realtime for 100 vehicles; add cores for faster runs.
+
+---
+
+## Key replication tips
+
+1. **Synchronise clocks** between SUMO and ns-3—use a 0.05 s co-simulation step to avoid packet time-stamp drift.  
+2. **Disable MAC rate adaptation** in baseline tests; otherwise variable MCS can mask transmit-power gains.  
+3. **Pre-warm the LSTM** with at least 30 min of historical data; cold starts distort early PDR.  
+4. **Log per-relay selection decisions** to verify the 1/𝑒 rule is honoured—helps debug high-density cases.  
+5. **Validate radio range** by measuring empirical path-loss with `ns-3::YansWifiChannel` before integrating NFV logic.
+
+With these settings you should be able to reproduce the performance curves and investigate further extensions (e.g., UAV-mounted RSUs), exactly as suggested in the paper’s future-work section.
